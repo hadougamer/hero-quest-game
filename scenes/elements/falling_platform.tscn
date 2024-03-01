@@ -1,0 +1,134 @@
+[gd_scene load_steps=13 format=2]
+
+[ext_resource path="res://images/ground-tiled.png" type="Texture" id=1]
+[ext_resource path="res://images/ground-crash.png" type="Texture" id=3]
+
+[sub_resource type="GDScript" id=9]
+script/source = "extends KinematicBody2D
+
+var fall_velocity = 0
+var velocity = Vector2()
+var start_pos = null
+var falling = false
+var falltimer = null
+
+func _ready():
+	start_pos = global_position
+		
+func _physics_process(delta):
+	if falling:
+		velocity.y += fall_velocity * delta
+		velocity = move_and_slide(velocity, Vector2.UP)
+
+func disable_colliders():
+	$collider.disabled = true
+	$area_top.get_child(0).disabled = true
+	$area_bottom.get_child(0).disabled = true
+
+func _on_area_top_body_entered(body):	
+	if body.is_in_group(\"hero\"):
+		$FallTimer.wait_time = 0.5
+		$FallTimer.start()
+		$FallTimer.connect(\"timeout\", self, \"_on_fall_timeout\")
+		
+func _on_area_bottom_body_entered(body):
+	if not body.is_in_group(\"hero\") and body != self:
+		$sprite.play(\"crashing\")
+		
+func _on_sprite_animation_finished():
+	if $sprite.animation == \"crashing\":
+		disable_colliders()
+		$sprite.play(\"empty\")
+		
+		$CrashTimer.wait_time = 1.0
+		$CrashTimer.start()
+		$CrashTimer.connect(\"timeout\", self, \"_on_finish_timeout\")
+		
+		
+func _on_finish_timeout():
+	var pf = Global.pre_fall_pf.instance()
+	pf.global_position = start_pos
+	get_parent().add_child(pf)
+	
+	queue_free()
+	
+func _on_fall_timeout():
+	self.falling = true
+	self.fall_velocity = 400
+"
+
+[sub_resource type="RectangleShape2D" id=1]
+extents = Vector2( 16, 16 )
+
+[sub_resource type="AtlasTexture" id=2]
+atlas = ExtResource( 3 )
+region = Rect2( 0, 0, 32, 32 )
+
+[sub_resource type="AtlasTexture" id=3]
+atlas = ExtResource( 3 )
+region = Rect2( 32, 0, 32, 32 )
+
+[sub_resource type="AtlasTexture" id=4]
+atlas = ExtResource( 3 )
+region = Rect2( 64, 0, 32, 32 )
+
+[sub_resource type="AtlasTexture" id=5]
+atlas = ExtResource( 3 )
+region = Rect2( 96, 0, 32, 32 )
+
+[sub_resource type="AtlasTexture" id=6]
+atlas = ExtResource( 1 )
+region = Rect2( 32, 0, 32, 32 )
+
+[sub_resource type="SpriteFrames" id=7]
+animations = [ {
+"frames": [ SubResource( 2 ), SubResource( 3 ), SubResource( 4 ), SubResource( 5 ) ],
+"loop": true,
+"name": "crashing",
+"speed": 20.0
+}, {
+"frames": [ SubResource( 6 ) ],
+"loop": true,
+"name": "default",
+"speed": 5.0
+}, {
+"frames": [  ],
+"loop": true,
+"name": "empty",
+"speed": 5.0
+} ]
+
+[sub_resource type="RectangleShape2D" id=10]
+extents = Vector2( 13, 2.5 )
+
+[sub_resource type="RectangleShape2D" id=11]
+extents = Vector2( 14, 2.5 )
+
+[node name="falling_platform" type="KinematicBody2D"]
+script = SubResource( 9 )
+
+[node name="collider" type="CollisionShape2D" parent="."]
+shape = SubResource( 1 )
+
+[node name="sprite" type="AnimatedSprite" parent="."]
+frames = SubResource( 7 )
+
+[node name="area_top" type="Area2D" parent="."]
+
+[node name="area_top_collider" type="CollisionShape2D" parent="area_top"]
+position = Vector2( 0, -16 )
+shape = SubResource( 10 )
+
+[node name="area_bottom" type="Area2D" parent="."]
+
+[node name="area_bottom_collider" type="CollisionShape2D" parent="area_bottom"]
+position = Vector2( 0, 15.5 )
+shape = SubResource( 11 )
+
+[node name="FallTimer" type="Timer" parent="."]
+
+[node name="CrashTimer" type="Timer" parent="."]
+
+[connection signal="animation_finished" from="sprite" to="." method="_on_sprite_animation_finished"]
+[connection signal="body_entered" from="area_top" to="." method="_on_area_top_body_entered"]
+[connection signal="body_entered" from="area_bottom" to="." method="_on_area_bottom_body_entered"]
